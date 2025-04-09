@@ -23,6 +23,7 @@ substituicoes = {
     '├â': 'Ã',
     '├¬': 'ê',
     '├Á': 'õ',
+    '├⌐': 'é'
 }
 
 def corrigir_nome(nome):
