@@ -2,61 +2,54 @@ import streamlit as st
 import os
 import shutil
 import time
+from pathlib import Path
 
-# Função para renomear os arquivos
-substituicoes = {
-    '├ö': 'Ô',
-    '├ô': 'Ó',
-    '├Ü': 'Ú',
-    '┬░': 'º',
-    '├º': 'ç',
-    '├ú': 'ã',
-    '├¡': 'í',
-    '├│': 'ó',
-    '├¬': 'ê',
-    '├ü': 'Á',
-    '├®': 'é',
-    '├í': 'á',
-    '├║': 'ú',
-    '├ó': 'â',
-    '├á': 'à',
-    '├â': 'Ã',
-    '├¬': 'ê',
-    '├Á': 'õ',
-    '├⌐': 'é',
-    '├┤': 'ô',
-    '├ç': 'Ç'
-}
-
-def corrigir_nome(nome):
-    for simbolo, letra in substituicoes.items():
-        nome = nome.replace(simbolo, letra)
-    return nome
+def corrigir_nome(nome_errado):
+    try:
+        # Tenta corrigir via conversão de codificação (caso seja problema de encoding)
+        return nome_errado.encode('cp1252').decode('utf-8')
+    except (UnicodeEncodeError, UnicodeDecodeError):
+        # Se falhar, mantém o nome original (ou pode adicionar fallback aqui)
+        return nome_errado
 
 def renomear_arquivos(pasta):
-    for arquivo in os.listdir(pasta):
-        caminho_antigo = os.path.join(pasta, arquivo)
-        if os.path.isfile(caminho_antigo):
+    for root, _, files in os.walk(pasta):
+        for arquivo in files:
+            caminho_antigo = os.path.join(root, arquivo)
+            
+            # Corrige o nome do arquivo
             novo_nome = corrigir_nome(arquivo)
-            caminho_novo = os.path.join(pasta, novo_nome)
+            caminho_novo = os.path.join(root, novo_nome)
+            
             if caminho_antigo != caminho_novo:
-                os.rename(caminho_antigo, caminho_novo)
-                st.write(f'Renomeado: "{arquivo}" → "{novo_nome}"')
-            else:
-                st.write(f'Sem alteração: "{arquivo}"')
+                try:
+                    os.rename(caminho_antigo, caminho_novo)
+                    st.write(f'Renomeado: "{arquivo}" → "{novo_nome}"')
+                except Exception as e:
+                    st.error(f"Erro ao renomear {arquivo}: {str(e)}")
 
 def limpar_diretorios():
     """Remove os diretórios temporários se existirem"""
-    if os.path.exists("temp.zip"):
-        os.remove("temp.zip")
-    if os.path.exists("fotos_corrigidas.zip"):
-        os.remove("fotos_corrigidas.zip")
-    if os.path.exists("fotos"):
-        shutil.rmtree("fotos")
+    temp_files = ["temp.zip", "fotos_corrigidas.zip"]
+    temp_dirs = ["fotos"]
+    
+    for file in temp_files:
+        if os.path.exists(file):
+            try:
+                os.remove(file)
+            except:
+                pass
+                
+    for dir in temp_dirs:
+        if os.path.exists(dir):
+            try:
+                shutil.rmtree(dir)
+            except:
+                pass
 
 # Configuração do Streamlit
-st.title("🔄 Renomeador de Fotos - SGL")
-st.write("Corrige automaticamente nomes de fotos com símbolos estranhos.")
+st.title("🔄 Renomeador de Fotos - SGL (Versão Avançada)")
+st.write("Corrige automaticamente nomes de fotos com problemas de codificação.")
 
 # Limpa diretórios antigos no início
 limpar_diretorios()
@@ -68,23 +61,32 @@ if arquivo_zip:
     with open("temp.zip", "wb") as f:
         f.write(arquivo_zip.getbuffer())
 
-    shutil.unpack_archive("temp.zip", "fotos")
-    st.success("Arquivo recebido e extraído com sucesso!")
+    # Extrai o ZIP tratando a codificação
+    try:
+        shutil.unpack_archive("temp.zip", "fotos")
+        st.success("Arquivo recebido e extraído com sucesso!")
+    except Exception as e:
+        st.error(f"Erro ao extrair arquivo: {str(e)}")
+        st.stop()
 
-    if st.button("🔄 Renomear fotos"):
-        renomear_arquivos("fotos")
-        shutil.make_archive("fotos_corrigidas", 'zip', "fotos")
+    if st.button("🔄 Renomear fotos automaticamente"):
+        with st.spinner("Processando arquivos..."):
+            renomear_arquivos("fotos")
+            
+            # Cria novo ZIP
+            shutil.make_archive("fotos_corrigidas", 'zip', "fotos")
+            
+            with open("fotos_corrigidas.zip", "rb") as f:
+                btn = st.download_button(
+                    label="📥 Baixar fotos corrigidas",
+                    data=f,
+                    file_name="fotos_corrigidas.zip",
+                    mime="application/zip",
+                    on_click=lambda: limpar_diretorios()
+                )
         
-        with open("fotos_corrigidas.zip", "rb") as f:
-            btn = st.download_button(
-                label="📥 Baixar fotos corrigidas",
-                data=f,
-                file_name="fotos_corrigidas.zip",
-                on_click=lambda: limpar_diretorios()  # Limpa após o download
-            )
-        
-        # Se o usuário não clicar no botão de download, limpa após 1 minuto
-        time.sleep(60)
+        # Limpa após 2 minutos se não baixar
+        time.sleep(120)
         limpar_diretorios()
 else:
     st.info("Aguardando envio do arquivo ZIP...")
