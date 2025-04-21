@@ -2,14 +2,14 @@ import streamlit as st
 import os
 import shutil
 
-# Função para corrigir nomes com codificação errada
+# Função para corrigir nomes com codificação errada (safe fallback)
 def corrigir_nome(nome):
     try:
-        # Tenta simular nomes lidos com a codificação errada (ex: UTF-8 que era pra ser CP1252)
         return nome.encode('latin1').decode('utf-8')
-    except UnicodeDecodeError:
-        return nome  # Se falhar, retorna o nome original
+    except (UnicodeEncodeError, UnicodeDecodeError):
+        return nome  # Retorna o original se der erro
 
+# Função para renomear os arquivos
 def renomear_arquivos(pasta):
     for arquivo in os.listdir(pasta):
         caminho_antigo = os.path.join(pasta, arquivo)
@@ -22,7 +22,7 @@ def renomear_arquivos(pasta):
             else:
                 st.write(f'Sem alteração: "{arquivo}"')
 
-# Limpa os arquivos e pastas temporárias
+# Função para limpar arquivos temporários
 def limpar_temp():
     if os.path.exists("fotos"):
         shutil.rmtree("fotos")
@@ -31,15 +31,15 @@ def limpar_temp():
     if os.path.exists("fotos_corrigidas.zip"):
         os.remove("fotos_corrigidas.zip")
 
-# Interface
+# Interface do app
 st.title("🔄 Renomeador de Fotos - SGL")
 st.write("Corrige automaticamente nomes de fotos com símbolos estranhos.")
 
-# Upload
+# Upload de pasta zip
 arquivo_zip = st.file_uploader("Envie a pasta compactada (ZIP) com as fotos:", type=["zip"])
 
 if arquivo_zip:
-    limpar_temp()  # limpa arquivos antigos antes de processar
+    limpar_temp()  # Limpa arquivos antigos antes de processar
 
     with open("temp.zip", "wb") as f:
         f.write(arquivo_zip.getbuffer())
@@ -54,6 +54,6 @@ if arquivo_zip:
         with open("fotos_corrigidas.zip", "rb") as f:
             st.download_button("📥 Baixar fotos corrigidas", f, "fotos_corrigidas.zip")
 
-        limpar_temp()  # limpa tudo depois do download
+        limpar_temp()  # Limpa tudo depois do download
 else:
     st.info("Aguardando envio do arquivo ZIP...")
