@@ -48,7 +48,7 @@ def limpar_diretorios():
                 pass
 
 # Configuração do Streamlit
-st.title("🔄 Renomeador de Fotos - SGL (Versão Avançada)")
+st.title("🔄 Renomeador de Fotos - SGL")
 st.write("Corrige automaticamente nomes de fotos com problemas de codificação.")
 
 # Limpa diretórios antigos no início
